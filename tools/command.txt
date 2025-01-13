@@ -1,0 +1,19 @@
+# 멀티 GPU 예제 / -c 뒤에 config path
+torchrun --nproc_per_node=2 tools/train.py -c /home/prml/StudentsWork/Chanyoung/workspace/detection/detr/graduate_project/configs/rtdetr_pos_attn/r50_coco_72epc_pos_cond.yml
+
+# 특정 GPU 학습 예제 / -c 뒤에 config path
+CUDA_VISIBLE_DEVICES=1 python tools/train.py -c /home/work/StudentsWork/Chanyoung/workspace/detection/detr/graduate_project/configs/rtdetr/convnext_ag_256dim_coco_48epc_pos.yml
+
+# 단일(0번) GPU 학습 예제
+python tools/train.py -c /home/work/StudentsWork/Chanyoung/workspace/detection/detr/graduate_project/configs/rtdetr/convnext_ag_256dim_coco_tuning.yml -t /home/work/StudentsWork/Chanyoung/workspace/_experiments/graduate/rtdetr_convnext_ag_256dim_coco_241017/best.pth
+
+# 기타 설명
+-r 이어서 학습할 .pt path 적으면, 그 시점 부터 학습이 다시 시작됨
+-t 튜닝할 때 사용 가능
+--test-only 테스트할 때 사용 가능
+
+==================
+GitHub 귀찮을 때
+git config --global user.email young221718@gmail.com
+git config --global user.name CYinH100
+

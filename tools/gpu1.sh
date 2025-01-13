@@ -1,0 +1,2 @@
+CUDA_VISIBLE_DEVICES=1 python tools/train.py -c /home/prml/StudentsWork/Chanyoung/workspace/detection/detr/graduate_project/configs/rtdetr_pos_attn/r18_coco_72epc_pos_style_c.yml
+CUDA_VISIBLE_DEVICES=1 python tools/train.py -c /home/prml/StudentsWork/Chanyoung/workspace/detection/detr/graduate_project/configs/rtdetr_pos_attn/r18_coco_72epc_pos_style_d.yml

@@ -1,0 +1,123 @@
+task: detection
+
+__include__: ["../runtime.yml", "../include/optimizer.yml"]
+output_dir: /home/prml/StudentsWork/Chanyoung/MODU/result/femto
+epoches: 72
+
+# ======================== Dataset Config ======================== #
+num_classes: 80
+remap_mscoco_category: True
+
+train_dataloader:
+  type: DataLoader
+  dataset:
+    type: CocoDetection
+    img_folder: /home/prml/Dataset/coco2017/train2017/
+    ann_file: /home/prml/Dataset/coco2017/annotations/instances_train2017.json
+    transforms:
+      type: Compose
+      ops:
+        - { type: RandomPhotometricDistort, p: 0.5 }
+        - { type: RandomZoomOut, fill: 0 }
+        - { type: RandomIoUCrop, p: 0.8 }
+        - { type: SanitizeBoundingBoxes, min_size: 1 }
+        - { type: RandomHorizontalFlip }
+        - { type: Resize, size: [640, 640] }
+        - { type: ToImage }
+        - { type: ConvertImageDtype }
+        - { type: SanitizeBoundingBoxes, min_size: 1 }
+        - { type: ConvertBox, out_fmt: "cxcywh", normalize: True }
+  shuffle: True
+  batch_size: 16
+  num_workers: 16
+  drop_last: True
+  collate_fn: default_collate_fn
+
+val_dataloader:
+  type: DataLoader
+  dataset:
+    type: CocoDetection
+    img_folder: /home/prml/Dataset/coco2017/val2017/
+    ann_file: /home/prml/Dataset/coco2017/annotations/instances_val2017.json
+    transforms:
+      type: Compose
+      ops:
+        - { type: Resize, size: [640, 640] }
+        - { type: ToImage }
+        - { type: ConvertImageDtype }
+
+  shuffle: False
+  batch_size: 16
+  num_workers: 16
+  collate_fn: default_collate_fn
+  drop_last: False
+
+# ======================== Model Config ======================== #
+model: MODU
+criterion: DETRCriterion
+postprocessor: DETRPostProcessor
+
+MODU:
+  backbone: ConvNeXtV2
+  encoder: MODUencoder
+  decoder: MODUdecoder
+  multi_scale: [640]
+
+ConvNeXtV2:
+  model_size: "femto"
+  return_idx: [1, 2, 3]
+  pretrained: True
+
+MODUencoder:
+  in_channels: [96, 192, 384]
+  feat_strides: [8, 16, 32]
+
+  # intra
+  dim: 128
+  use_encoder_idx: [2]
+  num_encoder_layers: 1
+  nhead: 8
+  dim_feedforward: 768
+  dropout: 0.
+  enc_act: "gelu"
+  pe_temperature: 10000
+
+  # cross
+  expansion: 1.0
+  depth_mult: 1.0
+  act: "gelu"
+
+  # eval
+  eval_spatial_size: [640, 640]
+
+MODUdecoder:
+  feat_channels: [128, 128, 128]
+  feat_strides: [8, 16, 32]
+  dim: 128
+  num_levels: 3
+
+  num_queries: 300
+
+  num_decoder_layers: 3
+  num_denoising: 100
+
+  eval_idx: -1
+  eval_spatial_size: [640, 640]
+
+use_focal_loss: True
+
+DETRPostProcessor:
+  num_top_queries: 300
+
+DETRCriterion:
+  weight_dict: { loss_vfl: 1, loss_bbox: 5, loss_giou: 2 }
+  losses: ["vfl", "boxes"]
+  alpha: 0.75
+  gamma: 2.0
+
+  matcher:
+    type: HungarianMatcher
+    weight_dict: { cost_class: 2, cost_bbox: 5, cost_giou: 2 }
+    # use_focal_loss: True
+    alpha: 0.25
+    gamma: 2.0
