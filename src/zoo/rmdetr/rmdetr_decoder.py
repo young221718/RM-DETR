@@ -17,11 +17,11 @@ from src.core import register
 import pickle
 
 
-__all__ = ["RTDETRDecoder"]
+__all__ = ["RMDETRDecoder"]
 
 
 @register
-class RTDETRDecoder(nn.Module):
+class RMDETRDecoder(nn.Module):
     __share__ = ["num_classes"]
     __inject__ = ["deformable_attn"]
 
@@ -363,7 +363,7 @@ class RTDETRDecoder(nn.Module):
         )
 
         # decoder
-        out_bboxes, out_logits = self.decoder(
+        out_bboxes, out_logits, out_queries = self.decoder(
             target,
             init_ref_points_unact,
             memory,
@@ -374,6 +374,11 @@ class RTDETRDecoder(nn.Module):
             self.query_pos_head,
             attn_mask=attn_mask,
         )
+
+        # 여기다가 mask 연산을 추가하면 됨
+        for box, logit, query in zip(out_bboxes, out_logits, out_queries):
+            box = box * query.unsqueeze(-1).unsqueeze(-1)
+            logit = logit * query.unsqueeze(-1)
 
         if self.training and dn_meta is not None:
             dn_out_bboxes, out_bboxes = torch.split(
@@ -394,28 +399,6 @@ class RTDETRDecoder(nn.Module):
             if self.training and dn_meta is not None:
                 out["dn_aux_outputs"] = self._set_aux_loss(dn_out_logits, dn_out_bboxes)
                 out["dn_meta"] = dn_meta
-
-        # if not self.training:
-        #     # Load the list from the pickle file
-
-        #     try:
-        #         with open(
-        #             "/home/prml/StudentsWork/Chanyoung/workspace/detection/detr/graduate_project/check.pkl",
-        #             "rb",
-        #         ) as f:
-        #             idx_list = pickle.load(f)
-        #     except FileNotFoundError:
-        #         idx_list = []
-
-        #     # Append topk_idx to the list
-        #     idx_list.append(topk_idx.cpu().numpy())
-
-        #     # Save the updated list back to the pickle file
-        #     with open(
-        #         "/home/prml/StudentsWork/Chanyoung/workspace/detection/detr/graduate_project/check.pkl",
-        #         "wb",
-        #     ) as f:
-        #         pickle.dump(idx_list, f)
 
         return out
 

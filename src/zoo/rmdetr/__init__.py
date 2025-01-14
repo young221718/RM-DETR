@@ -1,3 +1,3 @@
 from .rtdetr import *
 from .rtdetr_encoder import *
-from .rtdetr_decoder import *
+from .rmdetr_decoder import *

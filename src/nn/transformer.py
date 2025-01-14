@@ -284,3 +284,80 @@ class DinoTransformerDecoder(nn.Module):
             )
 
         return torch.stack(dec_out_bboxes), torch.stack(dec_out_logits)
+
+
+class MaskDinoTransformerDecoder(nn.Module):
+    def __init__(self, hidden_dim, decoder_layer, num_layers, eval_idx=-1):
+        super().__init__()
+        self.layers = nn.ModuleList(
+            [copy.deepcopy(decoder_layer) for _ in range(num_layers)]
+        )
+        self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
+        self.eval_idx = eval_idx if eval_idx >= 0 else num_layers + eval_idx
+        self.norm = nn.LayerNorm(hidden_dim)
+
+    def forward(
+        self,
+        tgt,
+        ref_points_unact,
+        memory,
+        memory_spatial_shapes,
+        memory_level_start_index,
+        bbox_head,
+        score_head,
+        query_pos_head,
+        attn_mask=None,
+        memory_mask=None,
+    ):
+        output = tgt
+        dec_out_bboxes = []
+        dec_out_logits = []
+        dec_out_queries = []
+        ref_points_detach = F.sigmoid(ref_points_unact)
+
+        for i, layer in enumerate(self.layers):
+            ref_points_input = ref_points_detach.unsqueeze(2)
+            query_pos_embed = query_pos_head(ref_points_detach)
+
+            output = layer(
+                output,
+                ref_points_input,
+                memory,
+                memory_spatial_shapes,
+                memory_level_start_index,
+                attn_mask,
+                memory_mask,
+                query_pos_embed,
+            )
+
+            inter_ref_bbox = F.sigmoid(
+                bbox_head[i](output) + inverse_sigmoid(ref_points_detach)
+            )
+
+            if self.training:
+                dec_out_logits.append(score_head[i](output))
+                dec_out_queries.append(self.norm(output))
+                if i == 0:
+                    dec_out_bboxes.append(inter_ref_bbox)
+                else:
+                    dec_out_bboxes.append(
+                        F.sigmoid(bbox_head[i](output) + inverse_sigmoid(ref_points))
+                    )
+
+            elif i == self.eval_idx:
+                dec_out_logits.append(score_head[i](output))
+                dec_out_queries.append(self.norm(output))
+                dec_out_bboxes.append(inter_ref_bbox)
+                break
+
+            ref_points = inter_ref_bbox
+            ref_points_detach = (
+                inter_ref_bbox.detach() if self.training else inter_ref_bbox
+            )
+
+        return (
+            torch.stack(dec_out_bboxes),
+            torch.stack(dec_out_logits),
+            torch.stack(dec_out_queries),
+        )
