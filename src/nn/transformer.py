@@ -295,7 +295,6 @@ class MaskDinoTransformerDecoder(nn.Module):
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
         self.eval_idx = eval_idx if eval_idx >= 0 else num_layers + eval_idx
-        self.norm = nn.LayerNorm(hidden_dim)
 
     def forward(
         self,
@@ -337,7 +336,7 @@ class MaskDinoTransformerDecoder(nn.Module):
 
             if self.training:
                 dec_out_logits.append(score_head[i](output))
-                dec_out_queries.append(self.norm(output))
+                dec_out_queries.append(output)
                 if i == 0:
                     dec_out_bboxes.append(inter_ref_bbox)
                 else:
@@ -347,7 +346,7 @@ class MaskDinoTransformerDecoder(nn.Module):
 
             elif i == self.eval_idx:
                 dec_out_logits.append(score_head[i](output))
-                dec_out_queries.append(self.norm(output))
+                dec_out_queries.append(output)
                 dec_out_bboxes.append(inter_ref_bbox)
                 break
 

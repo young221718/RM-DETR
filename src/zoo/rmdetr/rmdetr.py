@@ -7,12 +7,12 @@ from src.core import register
 
 
 __all__ = [
-    "RTDETR",
+    "RMDETR",
 ]
 
 
 @register
-class RTDETR(nn.Module):
+class RMDETR(nn.Module):
     __inject__ = [
         "backbone",
         "encoder",

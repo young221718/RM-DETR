@@ -1,7 +1,7 @@
 task: detection
 
 __include__: ["../include/runtime.yml", "../include/optimizer.yml"]
-output_dir: /home/prml/StudentsWork/Chanyoung/SQ-DETR/output/r18
+output_dir: /home/prml/StudentsWork/Chanyoung/RM-DETR/output/r18
 epoches: 108
 
 # ======================== Dataset Config ======================== #
@@ -18,7 +18,7 @@ train_dataloader:
     transforms:
       type: Compose
       ops:
-        - { type: RandomPhotometricDistort, p: 0.5 }
+        # - { type: RandomPhotometricDistort, p: 0.5 }
         - { type: RandomZoomOut, fill: 0 }
         - { type: RandomIoUCrop, p: 0.8 }
         - { type: SanitizeBoundingBoxes, min_size: 1 }
@@ -55,15 +55,15 @@ val_dataloader:
   drop_last: False
 
 # ======================== Model Config ======================== #
-model: RTDETR
+model: RMDETR
 criterion: DETRCriterion
 postprocessor: DETRPostProcessor
 
-RTDETR:
+RMDETR:
   backbone: PResNet
-  encoder: RTDETREncoder
-  decoder: RTDETRDecoder
-  multi_scale: [480, 512, 544, 576, 608, 640, 640, 640, 672, 704, 736, 768, 800]
+  encoder: RMDETREncoder
+  decoder: RMDETRDecoder
+  multi_scale: [640]
 
 PResNet:
   depth: 18
@@ -74,7 +74,7 @@ PResNet:
   freeze_norm: False
   pretrained: True
 
-RTDETREncoder:
+RMDETREncoder:
   in_channels: [128, 256, 512]
   feat_strides: [8, 16, 32]
 
@@ -96,7 +96,7 @@ RTDETREncoder:
   # eval
   eval_spatial_size: [640, 640]
 
-RTDETRDecoder:
+RMDETRDecoder:
   feat_channels: [256, 256, 256]
   feat_strides: [8, 16, 32]
   hidden_dim: 256

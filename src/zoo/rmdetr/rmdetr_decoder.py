@@ -8,7 +8,7 @@ import torch.nn.init as init
 from src.utils.denoising import get_contrastive_denoising_training_group
 from src.utils.utils import bias_init_with_prob
 from src.nn.transformer import (
-    DinoTransformerDecoder,
+    MaskDinoTransformerDecoder,
     DeformableTransformerDecoderLayer,
     MLP,
 )
@@ -51,6 +51,7 @@ class RMDETRDecoder(nn.Module):
         deformable_attn=None,
         is_decoder_pos=False,
         attn_swap=False,
+        mask_dim=256,
     ):
 
         super().__init__()
@@ -91,7 +92,7 @@ class RMDETRDecoder(nn.Module):
             is_decoder_pos=is_decoder_pos,
             attn_swap=attn_swap,
         )
-        self.decoder = DinoTransformerDecoder(
+        self.decoder = MaskDinoTransformerDecoder(
             dim, decoder_layer, num_decoder_layers, eval_idx
         )
 
@@ -128,7 +129,10 @@ class RMDETRDecoder(nn.Module):
         self.dec_bbox_head = nn.ModuleList(
             [MLP(dim, dim, 4, num_layers=3) for _ in range(num_decoder_layers)]
         )
-
+        
+        self.mask_embed = MLP(dim, dim, mask_dim, num_layers=3)
+        self.mask_norm = nn.LayerNorm(dim)
+        
         # init encoder output anchors and valid_mask
         if self.eval_spatial_size:
             self.anchors, self.valid_mask = self._generate_anchors()
@@ -218,6 +222,7 @@ class RMDETRDecoder(nn.Module):
         level_start_index = [
             0,
         ]
+        self.mask_features = proj_feats[0]
         for i, feat in enumerate(proj_feats):
             _, _, h, w = feat.shape
             # [b, c, h, w] -> [b, h*w, c]
@@ -309,6 +314,12 @@ class RMDETRDecoder(nn.Module):
             dim=1,
             index=topk_ind.unsqueeze(-1).repeat(1, 1, enc_outputs_class.shape[-1]),
         )
+        
+        to_mask = output_memory.gather(
+            dim=1,
+            index=topk_ind.unsqueeze(-1).repeat(1, 1, output_memory.shape[-1]),
+        )
+        enc_topk_masks = self.get_masks(to_mask)
 
         # extract region features
         if self.learnt_init_query:
@@ -328,6 +339,7 @@ class RMDETRDecoder(nn.Module):
             reference_points_unact.detach(),
             enc_topk_bboxes,
             enc_topk_logits,
+            enc_topk_masks,
             topk_ind,
         )
 
@@ -356,7 +368,7 @@ class RMDETRDecoder(nn.Module):
                 None,
             )
 
-        target, init_ref_points_unact, enc_topk_bboxes, enc_topk_logits, topk_idx = (
+        target, init_ref_points_unact, enc_topk_bboxes, enc_topk_logits, enc_topk_masks, topk_idx = (
             self._get_decoder_input(
                 memory, spatial_shapes, denoising_class, denoising_bbox_unact
             )
@@ -376,9 +388,10 @@ class RMDETRDecoder(nn.Module):
         )
 
         # 여기다가 mask 연산을 추가하면 됨
-        for box, logit, query in zip(out_bboxes, out_logits, out_queries):
-            box = box * query.unsqueeze(-1).unsqueeze(-1)
-            logit = logit * query.unsqueeze(-1)
+        out_masks = []
+        for query in out_queries:
+            out_masks.append(self.get_masks(query))
+        out_masks = torch.stack(out_masks, dim=0) # [8,8,492,80,80]
 
         if self.training and dn_meta is not None:
             dn_out_bboxes, out_bboxes = torch.split(
@@ -387,27 +400,34 @@ class RMDETRDecoder(nn.Module):
             dn_out_logits, out_logits = torch.split(
                 out_logits, dn_meta["dn_num_split"], dim=2
             )
+            dn_out_masks, out_masks = torch.split(
+                out_masks, dn_meta["dn_num_split"], dim=2
+            )
 
-        out = {"pred_logits": out_logits[-1], "pred_boxes": out_bboxes[-1]}
+        out = {"pred_logits": out_logits[-1], "pred_boxes": out_bboxes[-1], "pred_masks": out_masks[-1]}
 
         if self.training and self.aux_loss:
-            out["aux_outputs"] = self._set_aux_loss(out_logits[:-1], out_bboxes[:-1])
+            out["aux_outputs"] = self._set_aux_loss(out_logits[:-1], out_bboxes[:-1], out_masks[:-1])
             out["aux_outputs"].extend(
-                self._set_aux_loss([enc_topk_logits], [enc_topk_bboxes])
+                self._set_aux_loss([enc_topk_logits], [enc_topk_bboxes], [enc_topk_masks])
             )
 
             if self.training and dn_meta is not None:
-                out["dn_aux_outputs"] = self._set_aux_loss(dn_out_logits, dn_out_bboxes)
+                out["dn_aux_outputs"] = self._set_aux_loss(dn_out_logits, dn_out_bboxes, dn_out_masks)
                 out["dn_meta"] = dn_meta
 
         return out
 
+    def get_masks(self, query):
+        mask_embed = self.mask_embed(self.mask_norm(query))
+        return torch.einsum("bqc,bchw->bqhw", mask_embed, self.mask_features)
+    
     @torch.jit.unused
-    def _set_aux_loss(self, outputs_class, outputs_coord):
+    def _set_aux_loss(self, outputs_class, outputs_coord, outputs_mask=None):
         # this is a workaround to make torchscript happy, as torchscript
         # doesn't support dictionary with non-homogeneous values, such
         # as a dict having both a Tensor and a list.
         return [
-            {"pred_logits": a, "pred_boxes": b}
-            for a, b in zip(outputs_class, outputs_coord)
+            {"pred_logits": a, "pred_boxes": b, 'pred_masks': c}
+            for a, b, c in zip(outputs_class, outputs_coord, outputs_mask)
         ]

@@ -11,12 +11,12 @@ from src.core import register
 
 
 __all__ = [
-    "RTDETREncoder",
+    "RMDETREncoder",
 ]
 
 
 @register
-class RTDETREncoder(nn.Module):
+class RMDETREncoder(nn.Module):
     def __init__(
         self,
         in_channels=[512, 1024, 2048],
