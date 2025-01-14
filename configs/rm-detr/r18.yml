@@ -1,8 +1,8 @@
 task: detection
 
-__include__: ["../runtime.yml", "../include/optimizer.yml"]
-output_dir: /home/prml/StudentsWork/Chanyoung/MODU/result/base
-epoches: 72
+__include__: ["../include/runtime.yml", "../include/optimizer.yml"]
+output_dir: /home/prml/StudentsWork/Chanyoung/SQ-DETR/output/r18
+epoches: 108
 
 # ======================== Dataset Config ======================== #
 num_classes: 80
@@ -14,6 +14,7 @@ train_dataloader:
     type: CocoDetection
     img_folder: /home/prml/Dataset/coco2017/train2017/
     ann_file: /home/prml/Dataset/coco2017/annotations/instances_train2017.json
+    return_masks: True
     transforms:
       type: Compose
       ops:
@@ -28,8 +29,8 @@ train_dataloader:
         - { type: SanitizeBoundingBoxes, min_size: 1 }
         - { type: ConvertBox, out_fmt: "cxcywh", normalize: True }
   shuffle: True
-  batch_size: 16
-  num_workers: 16
+  batch_size: 8
+  num_workers: 8
   drop_last: True
   collate_fn: default_collate_fn
 
@@ -39,6 +40,7 @@ val_dataloader:
     type: CocoDetection
     img_folder: /home/prml/Dataset/coco2017/val2017/
     ann_file: /home/prml/Dataset/coco2017/annotations/instances_val2017.json
+    return_masks: True
     transforms:
       type: Compose
       ops:
@@ -47,58 +49,62 @@ val_dataloader:
         - { type: ConvertImageDtype }
 
   shuffle: False
-  batch_size: 16
-  num_workers: 16
+  batch_size: 8
+  num_workers: 8
   collate_fn: default_collate_fn
   drop_last: False
 
 # ======================== Model Config ======================== #
-model: MODU
+model: RTDETR
 criterion: DETRCriterion
 postprocessor: DETRPostProcessor
 
-MODU:
-  backbone: ConvNeXtV2
-  encoder: MODUencoder
-  decoder: MODUdecoder
-  multi_scale: [640]
+RTDETR:
+  backbone: PResNet
+  encoder: RTDETREncoder
+  decoder: RTDETRDecoder
+  multi_scale: [480, 512, 544, 576, 608, 640, 640, 640, 672, 704, 736, 768, 800]
 
-ConvNeXtV2:
-  model_size: "base"
+PResNet:
+  depth: 18
+  variant: d
+  freeze_at: -1
   return_idx: [1, 2, 3]
+  num_stages: 4
+  freeze_norm: False
   pretrained: True
 
-MODUencoder:
-  in_channels: [256, 512, 1024]
+RTDETREncoder:
+  in_channels: [128, 256, 512]
   feat_strides: [8, 16, 32]
 
   # intra
-  dim: 384
+  hidden_dim: 256
   use_encoder_idx: [2]
   num_encoder_layers: 1
   nhead: 8
-  dim_feedforward: 2048
+  dim_feedforward: 1024
   dropout: 0.
   enc_act: "gelu"
   pe_temperature: 10000
 
   # cross
-  expansion: 1.0
-  depth_mult: 1.0
-  act: "gelu"
+  expansion: 0.5
+  depth_mult: 1
+  act: "silu"
 
   # eval
   eval_spatial_size: [640, 640]
 
-MODUdecoder:
-  feat_channels: [384, 384, 384]
+RTDETRDecoder:
+  feat_channels: [256, 256, 256]
   feat_strides: [8, 16, 32]
-  dim: 256
+  hidden_dim: 256
   num_levels: 3
 
   num_queries: 300
 
-  num_decoder_layers: 6
+  num_decoder_layers: 3
   num_denoising: 100
 
   eval_idx: -1
@@ -121,9 +127,3 @@ DETRCriterion:
     # use_focal_loss: True
     alpha: 0.25
     gamma: 2.0
-
-optimizer:
-  type: AdamW
-  params:
-    - params: "backbone"
-      lr: 0.000001

@@ -3,18 +3,20 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src.nn.conv import MSCAN_CCFF
+from src.nn.conv import ConvNormLayer, CSPRepLayer, MSCAN_CCFF
 from src.nn.transformer import TransformerEncoder, TransformerEncoderLayer
 from src.utils.utils import LayerNorm
 
 from src.core import register
 
 
-__all__ = ["MODUencoder"]
+__all__ = [
+    "RTDETREncoder",
+]
 
 
 @register
-class MODUencoder(nn.Module):
+class RTDETREncoder(nn.Module):
     def __init__(
         self,
         in_channels=[512, 1024, 2048],
@@ -50,8 +52,7 @@ class MODUencoder(nn.Module):
             self.input_proj.append(
                 nn.Sequential(
                     nn.Conv2d(in_channel, dim, kernel_size=1, bias=False),
-                    nn.GELU(),
-                    LayerNorm(dim, eps=1e-6, data_format="channels_first"),
+                    nn.BatchNorm2d(dim),
                 )
             )
 
@@ -75,15 +76,9 @@ class MODUencoder(nn.Module):
         self.lateral_convs = nn.ModuleList()
         self.fpn_blocks = nn.ModuleList()
         for _ in range(len(in_channels) - 1, 0, -1):
-            self.lateral_convs.append(
-                nn.Sequential(
-                    nn.Conv2d(dim, dim, 1, 1),
-                    nn.GELU(),
-                    LayerNorm(dim, eps=1e-6, data_format="channels_first"),
-                )
-            )
+            self.lateral_convs.append(ConvNormLayer(dim, dim, 1, 1, act=act))
             self.fpn_blocks.append(
-                MSCAN_CCFF(
+                CSPRepLayer(
                     dim * 2,
                     dim,
                     round(3 * depth_mult),
@@ -96,14 +91,9 @@ class MODUencoder(nn.Module):
         self.downsample_convs = nn.ModuleList()
         self.pan_blocks = nn.ModuleList()
         for _ in range(len(in_channels) - 1):
-            self.downsample_convs.append(
-                nn.Sequential(
-                    LayerNorm(dim, eps=1e-6, data_format="channels_first"),
-                    nn.Conv2d(dim, dim, kernel_size=2, stride=2),
-                )
-            )
+            self.downsample_convs.append(ConvNormLayer(dim, dim, 3, 2, act=act))
             self.pan_blocks.append(
-                MSCAN_CCFF(
+                CSPRepLayer(
                     dim * 2,
                     dim,
                     round(3 * depth_mult),

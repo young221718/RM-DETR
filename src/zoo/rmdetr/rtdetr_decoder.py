@@ -14,14 +14,16 @@ from src.nn.transformer import (
 )
 
 from src.core import register
+import pickle
 
 
-__all__ = ["MODUdecoder"]
+__all__ = ["RTDETRDecoder"]
 
 
 @register
-class MODUdecoder(nn.Module):
+class RTDETRDecoder(nn.Module):
     __share__ = ["num_classes"]
+    __inject__ = ["deformable_attn"]
 
     def __init__(
         self,
@@ -46,6 +48,7 @@ class MODUdecoder(nn.Module):
         eval_idx=-1,
         eps=1e-2,
         aux_loss=True,
+        deformable_attn=None,
         is_decoder_pos=False,
         attn_swap=False,
     ):
@@ -84,6 +87,7 @@ class MODUdecoder(nn.Module):
             activation,
             num_levels,
             num_decoder_points,
+            deformable_attn=deformable_attn,
             is_decoder_pos=is_decoder_pos,
             attn_swap=attn_swap,
         )
@@ -390,6 +394,28 @@ class MODUdecoder(nn.Module):
             if self.training and dn_meta is not None:
                 out["dn_aux_outputs"] = self._set_aux_loss(dn_out_logits, dn_out_bboxes)
                 out["dn_meta"] = dn_meta
+
+        # if not self.training:
+        #     # Load the list from the pickle file
+
+        #     try:
+        #         with open(
+        #             "/home/prml/StudentsWork/Chanyoung/workspace/detection/detr/graduate_project/check.pkl",
+        #             "rb",
+        #         ) as f:
+        #             idx_list = pickle.load(f)
+        #     except FileNotFoundError:
+        #         idx_list = []
+
+        #     # Append topk_idx to the list
+        #     idx_list.append(topk_idx.cpu().numpy())
+
+        #     # Save the updated list back to the pickle file
+        #     with open(
+        #         "/home/prml/StudentsWork/Chanyoung/workspace/detection/detr/graduate_project/check.pkl",
+        #         "wb",
+        #     ) as f:
+        #         pickle.dump(idx_list, f)
 
         return out
 
