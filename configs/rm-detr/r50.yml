@@ -1,7 +1,7 @@
 task: detection
 
-__include__: ["../runtime.yml", "../include/optimizer.yml"]
-output_dir: /home/prml/StudentsWork/Chanyoung/workspace/_experiments/graduate/rtdetr_r50_coco
+__include__: ["../include/runtime.yml", "../include/optimizer.yml"]
+output_dir: /home/prml/StudentsWork/Chanyoung/RM-DETR/output/r50
 epoches: 108
 
 # ======================== Dataset Config ======================== #
@@ -14,10 +14,11 @@ train_dataloader:
     type: CocoDetection
     img_folder: /home/prml/Dataset/coco2017/train2017/
     ann_file: /home/prml/Dataset/coco2017/annotations/instances_train2017.json
+    return_masks: True
     transforms:
       type: Compose
       ops:
-        - { type: RandomPhotometricDistort, p: 0.5 }
+        # - { type: RandomPhotometricDistort, p: 0.5 }
         - { type: RandomZoomOut, fill: 0 }
         - { type: RandomIoUCrop, p: 0.8 }
         - { type: SanitizeBoundingBoxes, min_size: 1 }
@@ -39,6 +40,7 @@ val_dataloader:
     type: CocoDetection
     img_folder: /home/prml/Dataset/coco2017/val2017/
     ann_file: /home/prml/Dataset/coco2017/annotations/instances_val2017.json
+    return_masks: True
     transforms:
       type: Compose
       ops:
@@ -53,31 +55,31 @@ val_dataloader:
   drop_last: False
 
 # ======================== Model Config ======================== #
-model: RTDETR
-criterion: DETRCriterion
+model: RMDETR
+criterion: RMDETRCriterion
 postprocessor: DETRPostProcessor
 
-RTDETR:
+RMDETR:
   backbone: PResNet
-  encoder: RTDETREncoder
-  decoder: RTDETRDecoder
-  multi_scale: [480, 512, 544, 576, 608, 640, 640, 640, 672, 704, 736, 768, 800]
+  encoder: RMDETREncoder
+  decoder: RMDETRDecoder
+  multi_scale: [640]
 
 PResNet:
-  depth: 34
+  depth: 50
   variant: d
   freeze_at: -1
   return_idx: [1, 2, 3]
   num_stages: 4
-  freeze_norm: False
+  freeze_norm: True
   pretrained: True
 
-RTDETREncoder:
-  in_channels: [128, 256, 512]
+RMDETREncoder:
+  in_channels: [512, 1024, 2048]
   feat_strides: [8, 16, 32]
 
   # intra
-  hidden_dim: 256
+  dim: 256
   use_encoder_idx: [2]
   num_encoder_layers: 1
   nhead: 8
@@ -87,14 +89,14 @@ RTDETREncoder:
   pe_temperature: 10000
 
   # cross
-  expansion: 0.5
+  expansion: 1
   depth_mult: 1
   act: "silu"
 
   # eval
   eval_spatial_size: [640, 640]
 
-RTDETRDecoder:
+RMDETRDecoder:
   feat_channels: [256, 256, 256]
   feat_strides: [8, 16, 32]
   hidden_dim: 256
@@ -102,7 +104,7 @@ RTDETRDecoder:
 
   num_queries: 300
 
-  num_decoder_layers: 4
+  num_decoder_layers: 6
   num_denoising: 100
 
   eval_idx: -1
@@ -113,9 +115,9 @@ use_focal_loss: True
 DETRPostProcessor:
   num_top_queries: 300
 
-DETRCriterion:
-  weight_dict: { loss_vfl: 1, loss_bbox: 5, loss_giou: 2 }
-  losses: ["vfl", "boxes"]
+RMDETRCriterion:
+  weight_dict: { loss_vfl: 1, loss_bbox: 5, loss_giou: 2, loss_mask: 3, loss_dice: 3}
+  losses: ["vfl", "boxes", 'masks']
   alpha: 0.75
   gamma: 2.0
 
@@ -125,3 +127,17 @@ DETRCriterion:
     # use_focal_loss: True
     alpha: 0.25
     gamma: 2.0
+
+optimizer:
+  type: AdamW
+  params:
+    - params: "backbone"
+      lr: 0.00001
+    - params: "^(?=.*encoder(?=.*bias|.*norm.*weight)).*$"
+      weight_decay: 0.
+    - params: "^(?=.*decoder(?=.*bias|.*norm.*weight)).*$"
+      weight_decay: 0.
+
+  lr: 0.0001
+  betas: [0.9, 0.999]
+  weight_decay: 0.0001

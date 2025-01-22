@@ -56,7 +56,7 @@ val_dataloader:
 
 # ======================== Model Config ======================== #
 model: RMDETR
-criterion: DETRCriterion
+criterion: RMDETRCriterion
 postprocessor: DETRPostProcessor
 
 RMDETR:
@@ -79,7 +79,7 @@ RMDETREncoder:
   feat_strides: [8, 16, 32]
 
   # intra
-  hidden_dim: 256
+  dim: 256
   use_encoder_idx: [2]
   num_encoder_layers: 1
   nhead: 8
@@ -115,9 +115,9 @@ use_focal_loss: True
 DETRPostProcessor:
   num_top_queries: 300
 
-DETRCriterion:
-  weight_dict: { loss_vfl: 1, loss_bbox: 5, loss_giou: 2 }
-  losses: ["vfl", "boxes"]
+RMDETRCriterion:
+  weight_dict: { loss_vfl: 1, loss_bbox: 5, loss_giou: 2, loss_mask: 3, loss_dice: 3}
+  losses: ["vfl", "boxes", 'masks']
   alpha: 0.75
   gamma: 2.0
 
@@ -127,3 +127,17 @@ DETRCriterion:
     # use_focal_loss: True
     alpha: 0.25
     gamma: 2.0
+
+optimizer:
+  type: AdamW
+  params:
+    - params: "backbone"
+      lr: 0.0001
+    - params: "^(?=.*encoder(?=.*bias|.*norm.*weight)).*$"
+      weight_decay: 0.
+    - params: "^(?=.*decoder(?=.*bias|.*norm.*weight)).*$"
+      weight_decay: 0.
+
+  lr: 0.0001
+  betas: [0.9, 0.999]
+  weight_decay: 0.0001
