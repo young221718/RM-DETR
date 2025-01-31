@@ -2,7 +2,7 @@ task: detection
 
 __include__: ["../include/runtime.yml", "../include/optimizer.yml"]
 output_dir: /home/prml/StudentsWork/Chanyoung/RM-DETR/output/r18
-epoches: 108
+epoches: 72
 
 # ======================== Dataset Config ======================== #
 num_classes: 80
@@ -116,14 +116,15 @@ DETRPostProcessor:
   num_top_queries: 300
 
 RMDETRCriterion:
-  weight_dict: { loss_vfl: 1, loss_bbox: 5, loss_giou: 2, loss_mask: 3, loss_dice: 3}
+  weight_dict: { loss_vfl: 1, loss_bbox: 5, loss_giou: 2, loss_mask: 3, loss_dice: 5}
   losses: ["vfl", "boxes", 'masks']
   alpha: 0.75
   gamma: 2.0
 
   matcher:
-    type: HungarianMatcher
-    weight_dict: { cost_class: 2, cost_bbox: 5, cost_giou: 2 }
+    type: MaskHungarianMatcher
+    # weight_dict: { cost_class: 2, cost_bbox: 5, cost_giou: 2}
+    weight_dict: { cost_class: 2, cost_bbox: 5, cost_giou: 2, cost_mask: 2, cost_dice: 2}
     # use_focal_loss: True
     alpha: 0.25
     gamma: 2.0
