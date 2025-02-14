@@ -195,4 +195,4 @@ class RMDETRPostProcessor(nn.Module):
     def iou_types(
         self,
     ):
-        return ("bbox",)
+        return ("bbox", "segm")

@@ -17,3 +17,8 @@ GitHub 귀찮을 때
 git config --global user.email young221718@gmail.com
 git config --global user.name CYinH100
 
+
+
+python tools/train.py -c /home/prml3090/joohee/RM-DETR/configs/rm-detr/r50.yml -r/home/prml3090/joohee/RM-DETR/output/r50/best.pth --test-only 
+
+
