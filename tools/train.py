@@ -52,11 +52,13 @@ if __name__ == "__main__":
         "--config",
         "-c",
         type=str,
+        # default='/home/prml/StudentsWork/Chanyoung/RM-DETR/configs/rm-detr/r18.yml'
     )
     parser.add_argument(
         "--resume",
         "-r",
         type=str,
+        # default='/home/prml/StudentsWork/Chanyoung/RM-DETR/output/r18/best.pth'
     )
     parser.add_argument(
         "--tuning",

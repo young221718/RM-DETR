@@ -1,7 +1,7 @@
 task: detection
 
 __include__: ["../include/runtime.yml", "../include/optimizer.yml"]
-output_dir: /home/prml/StudentsWork/Chanyoung/RM-DETR/output/r18
+output_dir: /home/prml/StudentsWork/Chanyoung/RM-DETR/output/r18_0215
 epoches: 72
 
 # ======================== Dataset Config ======================== #
@@ -57,7 +57,7 @@ val_dataloader:
 # ======================== Model Config ======================== #
 model: RMDETR
 criterion: RMDETRCriterion
-postprocessor: DETRPostProcessor
+postprocessor: RMDETRPostProcessor
 
 RMDETR:
   backbone: PResNet
@@ -112,7 +112,7 @@ RMDETRDecoder:
 
 use_focal_loss: True
 
-DETRPostProcessor:
+RMDETRPostProcessor:
   num_top_queries: 300
 
 RMDETRCriterion:

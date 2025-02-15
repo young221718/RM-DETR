@@ -649,7 +649,7 @@ class RMDETRCriterion(nn.Module):
         src_masks = src_masks.squeeze(0)
         
         losses = {}
-        loss_mask = self._sigmoid_focal_loss(src_masks, tgt_masks, num_boxes)
+        loss_mask = self._mask_focal_loss(src_masks, tgt_masks, num_boxes)
         losses["loss_mask"] = loss_mask.sum() / num_boxes
         
         loss_dice = self._dice_loss(src_masks, tgt_masks, num_boxes)
@@ -689,7 +689,7 @@ class RMDETRCriterion(nn.Module):
                     classification label for each element in inputs
                     (0 for the negative class and 1 for the positive class).
         """
-        inputs = inputs.sigmoid()
+        # inputs = inputs.sigmoid()
         inputs = inputs.flatten(1)
         targets = targets.flatten(1)
         numerator = 2 * (inputs * targets).sum(-1)
@@ -697,7 +697,7 @@ class RMDETRCriterion(nn.Module):
         loss = 1 - (numerator + 1) / (denominator + 1)
         return loss.sum() / num_masks
 
-    def _sigmoid_focal_loss(self, inputs, targets, num_boxes, alpha: float = 0.25, gamma: float = 2):
+    def _mask_focal_loss(self, inputs, targets, num_boxes, alpha: float = 0.25, gamma: float = 2):
         """
         Loss used in RetinaNet for dense detection: https://arxiv.org/abs/1708.02002.
         Args:
@@ -713,15 +713,15 @@ class RMDETRCriterion(nn.Module):
         Returns:
             Loss tensor
         """
-        prob = inputs.sigmoid()
-        ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
-        p_t = prob * targets + (1 - prob) * (1 - targets)
+        # prob = inputs.sigmoid()
+        ce_loss = F.binary_cross_entropy(inputs, targets, reduction="none")
+        # ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
+        p_t = inputs * targets + (1 - inputs) * (1 - targets)
         loss = ce_loss * ((1 - p_t) ** gamma)
 
         if alpha >= 0:
             alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
             loss = alpha_t * loss
-
 
         return loss.mean(1).sum() / num_boxes
 

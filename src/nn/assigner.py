@@ -144,34 +144,58 @@ class MaskHungarianMatcher(nn.Module):
         self.num_points = 112*112
         assert self.cost_class != 0 or self.cost_bbox != 0 or self.cost_giou != 0, "all costs cant be 0"
 
-    def point_sample(self, input, points, align_corners=False, mode='bilinear'):
-        """
-        Detectron2의 point_sample 함수를 PyTorch로 구현한 버전입니다.
+    # def point_sample(self, input, points, align_corners=False, mode='bilinear'):
+    #     """
+    #     Detectron2의 point_sample 함수를 PyTorch로 구현한 버전입니다.
 
+    #     Args:
+    #         input (Tensor): 크기가 (N, C, H, W)인 입력 특징 맵
+    #         points (Tensor): 크기가 (N, P, 2)인 정규화된 좌표. 
+    #                         여기서 P는 샘플링할 점의 개수입니다.
+    #         align_corners (bool): `grid_sample` 함수의 align_corners 옵션과 동일합니다. 
+    #                             기본값은 False입니다.
+    #         mode (str): 보간 방법. 'bilinear' 또는 'nearest'를 사용할 수 있습니다. 
+    #                     기본값은 'bilinear'입니다.
+
+    #     Returns:
+    #         Tensor: 크기가 (N, C, P)인 출력 텐서
+    #     """
+
+    #     N, C, H, W = input.shape
+    #     _, P, _ = points.shape
+
+    #     # 정규화된 좌표를 [-1, 1] 범위로 변환
+    #     grid = points.view(N, 1, -1, 2) * 2 - 1
+
+    #     # grid_sample 함수를 사용하여 샘플링
+    #     output = F.grid_sample(input, grid, align_corners=align_corners, mode=mode)
+
+    #     # 출력 텐서의 크기를 (N, C, P)로 변경
+    #     return output.view(N, C, -1)
+    
+    def point_sample(self, input, point_coords, **kwargs):
+        """
+        A wrapper around :function:`torch.nn.functional.grid_sample` to support 3D point_coords tensors.
+        Unlike :function:`torch.nn.functional.grid_sample` it assumes `point_coords` to lie inside
+        [0, 1] x [0, 1] square.
         Args:
-            input (Tensor): 크기가 (N, C, H, W)인 입력 특징 맵
-            points (Tensor): 크기가 (N, P, 2)인 정규화된 좌표. 
-                            여기서 P는 샘플링할 점의 개수입니다.
-            align_corners (bool): `grid_sample` 함수의 align_corners 옵션과 동일합니다. 
-                                기본값은 False입니다.
-            mode (str): 보간 방법. 'bilinear' 또는 'nearest'를 사용할 수 있습니다. 
-                        기본값은 'bilinear'입니다.
-
+            input (Tensor): A tensor of shape (N, C, H, W) that contains features map on a H x W grid.
+            point_coords (Tensor): A tensor of shape (N, P, 2) or (N, Hgrid, Wgrid, 2) that contains
+            [0, 1] x [0, 1] normalized point coordinates.
         Returns:
-            Tensor: 크기가 (N, C, P)인 출력 텐서
+            output (Tensor): A tensor of shape (N, C, P) or (N, C, Hgrid, Wgrid) that contains
+                features for points in `point_coords`. The features are obtained via bilinear
+                interplation from `input` the same way as :function:`torch.nn.functional.grid_sample`.
         """
-
-        N, C, H, W = input.shape
-        _, P, _ = points.shape
-
-        # 정규화된 좌표를 [-1, 1] 범위로 변환
-        grid = points.view(N, 1, -1, 2) * 2 - 1
-
-        # grid_sample 함수를 사용하여 샘플링
-        output = F.grid_sample(input, grid, align_corners=align_corners, mode=mode)
-
-        # 출력 텐서의 크기를 (N, C, P)로 변경
-        return output.view(N, C, -1)
+        add_dim = False
+        if point_coords.dim() == 3:
+            add_dim = True
+            point_coords = point_coords.unsqueeze(2)
+        output = F.grid_sample(input, 2.0 * point_coords - 1.0, **kwargs)
+        if add_dim:
+            output = output.squeeze(3)
+        return output
+    
     
     def batch_dice_loss(self, inputs: torch.Tensor, targets: torch.Tensor):
         """
@@ -260,7 +284,7 @@ class MaskHungarianMatcher(nn.Module):
             cost_class = pos_cost_class[:, tgt_ids] - neg_cost_class[:, tgt_ids]
         
             # mask matching
-            if targets[b]["masks"] is None:
+            if targets[b]["masks"] is not None:
                 out_mask = outputs["pred_masks"][b]  # [num_queries, H_pred, W_pred]
                 # gt masks are already padded when preparing target
                 tgt_mask = targets[b]["masks"].to(out_mask)

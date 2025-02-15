@@ -390,9 +390,11 @@ class RMDETRDecoder(nn.Module):
         # 여기다가 mask 연산을 추가하면 됨
         out_masks = []
         for query in out_queries:
-            out_masks.append(self.get_masks(query))
-        out_masks = torch.stack(out_masks, dim=0) # [8,8,492,80,80]
-
+            masks = self.get_masks(query)
+            # masks = F.interpolate(masks, scale_factor=8, mode='bilinear', align_corners=True)
+            out_masks.append(masks)
+        out_masks = torch.stack(out_masks, dim=0) # [8,8,492,640,640]
+        
         if self.training and dn_meta is not None:
             dn_out_bboxes, out_bboxes = torch.split(
                 out_bboxes, dn_meta["dn_num_split"], dim=2
@@ -420,7 +422,9 @@ class RMDETRDecoder(nn.Module):
 
     def get_masks(self, query):
         mask_embed = self.mask_embed(self.mask_norm(query))
-        return torch.einsum("bqc,bchw->bqhw", mask_embed, self.mask_features)
+        masks = torch.einsum("bqc,bchw->bqhw", mask_embed, self.mask_features)
+        masks = F.sigmoid(masks)
+        return masks
     
     @torch.jit.unused
     def _set_aux_loss(self, outputs_class, outputs_coord, outputs_mask=None):
