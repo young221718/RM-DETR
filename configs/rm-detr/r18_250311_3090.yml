@@ -1,0 +1,148 @@
+task: detection
+
+__include__: ["../include/runtime.yml", "../include/optimizer.yml"]
+output_dir: /home/prml3090/joohee/RM-DETR/output/r18_0311
+epoches: 72
+
+# ======================== Dataset Config ======================== #
+num_classes: 80
+remap_mscoco_category: True
+
+train_dataloader:
+  type: DataLoader
+  dataset:
+    type: CocoDetection
+    img_folder: /home/prml3090/joohee/DATA/coco2017/coco2017/train2017/
+    ann_file: /home/prml3090/joohee/DATA/coco2017/coco2017/annotations/instances_train2017.json
+    return_masks: True
+    transforms:
+      type: Compose
+      ops:
+        # - { type: RandomPhotometricDistort, p: 0.5 }
+        - { type: RandomZoomOut, fill: 0 }
+        - { type: RandomIoUCrop, p: 0.8 }
+        - { type: SanitizeBoundingBoxes, min_size: 1 }
+        - { type: RandomHorizontalFlip }
+        - { type: Resize, size: [640, 640] }
+        - { type: ToImage }
+        - { type: ConvertImageDtype }
+        - { type: SanitizeBoundingBoxes, min_size: 1 }
+        - { type: ConvertBox, out_fmt: "cxcywh", normalize: True }
+  shuffle: True
+  batch_size: 16
+  num_workers: 8
+  drop_last: True
+  collate_fn: default_collate_fn
+
+val_dataloader:
+  type: DataLoader
+  dataset:
+    type: CocoDetection
+    img_folder: /home/prml3090/joohee/DATA/coco2017/coco2017/val2017/
+    ann_file: /home/prml3090/joohee/DATA/coco2017/coco2017/annotations/instances_val2017.json
+    return_masks: True
+    transforms:
+      type: Compose
+      ops:
+        - { type: Resize, size: [640, 640] }
+        - { type: ToImage }
+        - { type: ConvertImageDtype }
+
+  shuffle: False
+  batch_size: 16
+  num_workers: 8
+  collate_fn: default_collate_fn
+  drop_last: False
+
+# ======================== Model Config ======================== #
+model: RMDETR
+criterion: RMDETRCriterion
+postprocessor: RMDETRPostProcessor
+
+RMDETR:
+  backbone: PResNet
+  encoder: RMDETREncoder
+  decoder: RMDETRDecoder
+  multi_scale: [640]
+  backbone_init_dim: 64
+  mask_dim: 256
+  query_dim: 256
+
+
+PResNet:
+  depth: 18
+  variant: d
+  freeze_at: -1
+  return_idx: [0, 1, 2, 3]
+  num_stages: 4
+  freeze_norm: False
+  pretrained: True
+
+RMDETREncoder:
+  in_channels: [128, 256, 512]
+  feat_strides: [8, 16, 32]
+
+  # intra
+  dim: 256
+  use_encoder_idx: [2]
+  num_encoder_layers: 1
+  nhead: 8
+  dim_feedforward: 1024
+  dropout: 0.
+  enc_act: "gelu"
+  pe_temperature: 10000
+
+  # cross
+  expansion: 0.5
+  depth_mult: 1
+  act: "silu"
+
+  # eval
+  eval_spatial_size: [640, 640]
+
+RMDETRDecoder:
+  feat_channels: [256, 256, 256]
+  feat_strides: [8, 16, 32]
+  hidden_dim: 256
+  num_levels: 3
+
+  num_queries: 300
+
+  num_decoder_layers: 6
+  num_denoising: 100
+
+  eval_idx: -1
+  eval_spatial_size: [640, 640]
+
+use_focal_loss: True
+
+RMDETRPostProcessor:
+  num_top_queries: 300
+
+RMDETRCriterion:
+  weight_dict: { loss_vfl: 1, loss_bbox: 5, loss_giou: 2, loss_mask: 5, loss_dice: 5}
+  losses: ["vfl", "boxes", 'masks']
+  alpha: 0.75
+  gamma: 2.0
+
+  matcher:
+    type: HungarianMatcher
+    weight_dict: { cost_class: 2, cost_bbox: 5, cost_giou: 2}
+    # weight_dict: { cost_class: 2, cost_bbox: 5, cost_giou: 2, cost_mask: 3, cost_dice: 3}
+    # use_focal_loss: True
+    alpha: 0.25
+    gamma: 2.0
+
+optimizer:
+  type: AdamW
+  params:
+    - params: "backbone"
+      lr: 0.0001
+    - params: "^(?=.*encoder(?=.*bias|.*norm.*weight)).*$"
+      weight_decay: 0.
+    - params: "^(?=.*decoder(?=.*bias|.*norm.*weight)).*$"
+      weight_decay: 0.
+
+  lr: 0.0001
+  betas: [0.9, 0.999]
+  weight_decay: 0.0001
