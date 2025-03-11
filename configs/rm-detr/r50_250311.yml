@@ -1,7 +1,7 @@
 task: detection
 
 __include__: ["../include/runtime.yml", "../include/optimizer.yml"]
-output_dir: /home/prml/joohee/RM-DETR/output/r50_0215
+output_dir: /home/prml/joohee/RM-DETR/output/r50_250311
 epoches: 72
 
 # ======================== Dataset Config ======================== #
@@ -64,12 +64,15 @@ RMDETR:
   encoder: RMDETREncoder
   decoder: RMDETRDecoder
   multi_scale: [640]
-
+  backbone_init_dim: 256
+  mask_dim: 256
+  query_dim: 256
+  
 PResNet:
   depth: 50
   variant: d
   freeze_at: 0
-  return_idx: [1, 2, 3]
+  return_idx: [0, 1, 2, 3]
   num_stages: 4
   freeze_norm: False
   pretrained: True
@@ -77,6 +80,7 @@ PResNet:
 RMDETREncoder:
   in_channels: [512, 1024, 2048]
   feat_strides: [8, 16, 32]
+  
 
   # intra
   dim: 256
@@ -122,7 +126,7 @@ RMDETRCriterion:
   gamma: 2.0
 
   matcher:
-    type: MaskHungarianMatcher
+    type: HungarianMatcher
     # weight_dict: { cost_class: 2, cost_bbox: 5, cost_giou: 2}
     weight_dict: { cost_class: 2, cost_bbox: 5, cost_giou: 2, cost_mask: 2, cost_dice: 2}
     # use_focal_loss: True

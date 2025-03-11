@@ -319,7 +319,7 @@ class RMDETRDecoder(nn.Module):
             dim=1,
             index=topk_ind.unsqueeze(-1).repeat(1, 1, output_memory.shape[-1]),
         )
-        enc_topk_masks = self.get_masks(to_mask)
+        # enc_topk_masks = self.get_masks(to_mask)
 
         # extract region features
         if self.learnt_init_query:
@@ -339,7 +339,7 @@ class RMDETRDecoder(nn.Module):
             reference_points_unact.detach(),
             enc_topk_bboxes,
             enc_topk_logits,
-            enc_topk_masks,
+            # enc_topk_masks,
             topk_ind,
         )
 
@@ -368,7 +368,7 @@ class RMDETRDecoder(nn.Module):
                 None,
             )
 
-        target, init_ref_points_unact, enc_topk_bboxes, enc_topk_logits, enc_topk_masks, topk_idx = (
+        target, init_ref_points_unact, enc_topk_bboxes, enc_topk_logits, topk_idx = (
             self._get_decoder_input(
                 memory, spatial_shapes, denoising_class, denoising_bbox_unact
             )
@@ -388,12 +388,12 @@ class RMDETRDecoder(nn.Module):
         )
 
         # 여기다가 mask 연산을 추가하면 됨
-        out_masks = []
-        for query in out_queries:
-            masks = self.get_masks(query)
-            # masks = F.interpolate(masks, scale_factor=8, mode='bilinear', align_corners=True)
-            out_masks.append(masks)
-        out_masks = torch.stack(out_masks, dim=0) # [8,8,492,640,640]
+        # out_masks = []
+        # for query in out_queries:
+        #     masks = self.get_masks(query)
+        #     # masks = F.interpolate(masks, scale_factor=8, mode='bilinear', align_corners=True)
+        #     out_masks.append(masks)
+        # out_masks = torch.stack(out_masks, dim=0) # [8,8,492,640,640]
         
         if self.training and dn_meta is not None:
             dn_out_bboxes, out_bboxes = torch.split(
@@ -402,36 +402,33 @@ class RMDETRDecoder(nn.Module):
             dn_out_logits, out_logits = torch.split(
                 out_logits, dn_meta["dn_num_split"], dim=2
             )
-            dn_out_masks, out_masks = torch.split(
-                out_masks, dn_meta["dn_num_split"], dim=2
-            )
 
-        out = {"pred_logits": out_logits[-1], "pred_boxes": out_bboxes[-1], "pred_masks": out_masks[-1]}
+        out = {"pred_logits": out_logits[-1], "pred_boxes": out_bboxes[-1]}
 
         if self.training and self.aux_loss:
-            out["aux_outputs"] = self._set_aux_loss(out_logits[:-1], out_bboxes[:-1], out_masks[:-1])
+            out["aux_outputs"] = self._set_aux_loss(out_logits[:-1], out_bboxes[:-1])
             out["aux_outputs"].extend(
-                self._set_aux_loss([enc_topk_logits], [enc_topk_bboxes], [enc_topk_masks])
+                self._set_aux_loss([enc_topk_logits], [enc_topk_bboxes])
             )
 
             if self.training and dn_meta is not None:
-                out["dn_aux_outputs"] = self._set_aux_loss(dn_out_logits, dn_out_bboxes, dn_out_masks)
+                out["dn_aux_outputs"] = self._set_aux_loss(dn_out_logits, dn_out_bboxes)
                 out["dn_meta"] = dn_meta
 
-        return out
+        return out, out_queries
 
-    def get_masks(self, query):
-        mask_embed = self.mask_embed(self.mask_norm(query))
-        masks = torch.einsum("bqc,bchw->bqhw", mask_embed, self.mask_features)
-        masks = F.sigmoid(masks)
-        return masks
+    # def get_masks(self, query):
+    #     mask_embed = self.mask_embed(self.mask_norm(query))
+    #     masks = torch.einsum("bqc,bchw->bqhw", mask_embed, self.mask_features)
+    #     masks = F.sigmoid(masks)
+    #     return masks
     
     @torch.jit.unused
-    def _set_aux_loss(self, outputs_class, outputs_coord, outputs_mask=None):
+    def _set_aux_loss(self, outputs_class, outputs_coord):
         # this is a workaround to make torchscript happy, as torchscript
         # doesn't support dictionary with non-homogeneous values, such
         # as a dict having both a Tensor and a list.
         return [
-            {"pred_logits": a, "pred_boxes": b, 'pred_masks': c}
-            for a, b, c in zip(outputs_class, outputs_coord, outputs_mask)
+            {"pred_logits": a, "pred_boxes": b}
+            for a, b in zip(outputs_class, outputs_coord)
         ]

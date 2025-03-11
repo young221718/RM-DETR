@@ -645,7 +645,8 @@ class RMDETRCriterion(nn.Module):
             [t["masks"][i] for t, (_, i) in zip(targets, indices)], dim=0
         )
         src_masks = src_masks.unsqueeze(0)
-        src_masks = F.interpolate(src_masks, scale_factor=8, mode='bilinear', align_corners=True)
+        src_masks = F.interpolate(src_masks, scale_factor=4, mode='bilinear', align_corners=True)
+        src_masks = F.sigmoid(src_masks)
         src_masks = src_masks.squeeze(0)
         
         losses = {}

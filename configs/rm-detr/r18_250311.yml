@@ -1,7 +1,7 @@
 task: detection
 
 __include__: ["../include/runtime.yml", "../include/optimizer.yml"]
-output_dir: /home/prml/joohee/RM-DETR/output/r50_0215
+output_dir: /home/prml/StudentsWork/Chanyoung/RM-DETR/output/r18_0311
 epoches: 72
 
 # ======================== Dataset Config ======================== #
@@ -64,18 +64,22 @@ RMDETR:
   encoder: RMDETREncoder
   decoder: RMDETRDecoder
   multi_scale: [640]
+  backbone_init_dim: 64
+  mask_dim: 256
+  query_dim: 256
+
 
 PResNet:
-  depth: 50
+  depth: 18
   variant: d
-  freeze_at: 0
-  return_idx: [1, 2, 3]
+  freeze_at: -1
+  return_idx: [0, 1, 2, 3]
   num_stages: 4
   freeze_norm: False
   pretrained: True
 
 RMDETREncoder:
-  in_channels: [512, 1024, 2048]
+  in_channels: [128, 256, 512]
   feat_strides: [8, 16, 32]
 
   # intra
@@ -89,7 +93,7 @@ RMDETREncoder:
   pe_temperature: 10000
 
   # cross
-  expansion: 1
+  expansion: 0.5
   depth_mult: 1
   act: "silu"
 
@@ -112,19 +116,19 @@ RMDETRDecoder:
 
 use_focal_loss: True
 
-DETRPostProcessor:
+RMDETRPostProcessor:
   num_top_queries: 300
 
 RMDETRCriterion:
-  weight_dict: { loss_vfl: 1, loss_bbox: 5, loss_giou: 2, loss_mask: 3, loss_dice: 5}
+  weight_dict: { loss_vfl: 1, loss_bbox: 5, loss_giou: 2, loss_mask: 5, loss_dice: 5}
   losses: ["vfl", "boxes", 'masks']
   alpha: 0.75
   gamma: 2.0
 
   matcher:
-    type: MaskHungarianMatcher
-    # weight_dict: { cost_class: 2, cost_bbox: 5, cost_giou: 2}
-    weight_dict: { cost_class: 2, cost_bbox: 5, cost_giou: 2, cost_mask: 2, cost_dice: 2}
+    type: HungarianMatcher
+    weight_dict: { cost_class: 2, cost_bbox: 5, cost_giou: 2}
+    # weight_dict: { cost_class: 2, cost_bbox: 5, cost_giou: 2, cost_mask: 3, cost_dice: 3}
     # use_focal_loss: True
     alpha: 0.25
     gamma: 2.0
@@ -133,7 +137,7 @@ optimizer:
   type: AdamW
   params:
     - params: "backbone"
-      lr: 0.00001
+      lr: 0.0001
     - params: "^(?=.*encoder(?=.*bias|.*norm.*weight)).*$"
       weight_decay: 0.
     - params: "^(?=.*decoder(?=.*bias|.*norm.*weight)).*$"

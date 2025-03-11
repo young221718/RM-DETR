@@ -69,7 +69,7 @@ PResNet:
   depth: 18
   variant: d
   freeze_at: -1
-  return_idx: [1, 2, 3]
+  return_idx: [0, 1, 2, 3]
   num_stages: 4
   freeze_norm: False
   pretrained: True
