@@ -146,6 +146,7 @@ class RMDETRPostProcessor(nn.Module):
         mask_pred = masks.reshape(b,q,-1)
         if self.use_focal_loss:
             scores = F.sigmoid(logits) # 8, 300, 80
+            mask_pred = F.sigmoid(mask_pred)
             scores, index = torch.topk(scores.flatten(1), self.num_top_queries, axis=-1)
             labels = index % self.num_classes
             index = index // self.num_classes
