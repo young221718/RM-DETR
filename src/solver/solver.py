@@ -107,9 +107,9 @@ class BaseSolver(object):
 
         if getattr(self, "model", None) and "model" in state:
             if dist.is_parallel(self.model):
-                self.model.module.load_state_dict(state["model"])
+                self.model.module.load_state_dict(state["model"], strict=False)
             else:
-                self.model.load_state_dict(state["model"])
+                self.model.load_state_dict(state["model"], strict=False)
             print("Loading model.state_dict")
 
         if getattr(self, "ema", None) and "ema" in state:

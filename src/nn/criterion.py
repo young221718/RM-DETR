@@ -644,18 +644,19 @@ class RMDETRCriterion(nn.Module):
         tgt_masks = torch.cat(
             [t["masks"][i] for t, (_, i) in zip(targets, indices)], dim=0
         )
-        src_masks = src_masks.unsqueeze(0)
-        src_masks = F.interpolate(src_masks, scale_factor=4, mode='bilinear', align_corners=True)
-        src_masks = F.sigmoid(src_masks)
-        src_masks = src_masks.squeeze(0)
-        
-        losses = {}
-        loss_mask = self._mask_focal_loss(src_masks, tgt_masks, num_boxes)
-        losses["loss_mask"] = loss_mask.sum() / num_boxes
-        
-        loss_dice = self._dice_loss(src_masks, tgt_masks, num_boxes)
-        losses["loss_dice"] = loss_dice
-        
+        # src_masks = src_masks.unsqueeze(0)
+        # src_masks = F.interpolate(src_masks, scale_factor=4, mode='bilinear', align_corners=True)
+        # upsample predictions to the target size
+        src_masks = F.interpolate(src_masks[:, None], size=tgt_masks.shape[-2:],
+                                mode="bilinear", align_corners=False)
+        src_masks = src_masks[:, 0].flatten(1)
+
+        tgt_masks = tgt_masks.flatten(1)
+        tgt_masks = tgt_masks.view(src_masks.shape)
+        losses = {
+            "loss_mask": self._sigmoid_focal_loss(src_masks, tgt_masks, num_boxes),
+            "loss_dice": self._dice_loss(src_masks, tgt_masks, num_boxes),
+        }
         return losses
 
 
@@ -675,12 +676,7 @@ class RMDETRCriterion(nn.Module):
         tgt_idx = torch.cat([tgt for (_, tgt) in indices])
         return batch_idx, tgt_idx
 
-    def _dice_loss(
-        self,
-        inputs: torch.Tensor,
-        targets: torch.Tensor,
-        num_masks: float,
-    ):
+    def _dice_loss(self, inputs, targets, num_boxes):
         """
         Compute the DICE loss, similar to generalized IOU for masks
         Args:
@@ -690,15 +686,14 @@ class RMDETRCriterion(nn.Module):
                     classification label for each element in inputs
                     (0 for the negative class and 1 for the positive class).
         """
-        # inputs = inputs.sigmoid()
+        inputs = inputs.sigmoid()
         inputs = inputs.flatten(1)
-        targets = targets.flatten(1)
-        numerator = 2 * (inputs * targets).sum(-1)
+        numerator = 2 * (inputs * targets).sum(1)
         denominator = inputs.sum(-1) + targets.sum(-1)
         loss = 1 - (numerator + 1) / (denominator + 1)
-        return loss.sum() / num_masks
+        return loss.sum() / num_boxes
 
-    def _mask_focal_loss(self, inputs, targets, num_boxes, alpha: float = 0.25, gamma: float = 2):
+    def _sigmoid_focal_loss(self, inputs, targets, num_boxes, alpha: float = 0.25, gamma: float = 2):
         """
         Loss used in RetinaNet for dense detection: https://arxiv.org/abs/1708.02002.
         Args:
@@ -714,10 +709,9 @@ class RMDETRCriterion(nn.Module):
         Returns:
             Loss tensor
         """
-        # prob = inputs.sigmoid()
-        ce_loss = F.binary_cross_entropy(inputs, targets, reduction="none")
-        # ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
-        p_t = inputs * targets + (1 - inputs) * (1 - targets)
+        prob = inputs.sigmoid()
+        ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
+        p_t = prob * targets + (1 - prob) * (1 - targets)
         loss = ce_loss * ((1 - p_t) ** gamma)
 
         if alpha >= 0:

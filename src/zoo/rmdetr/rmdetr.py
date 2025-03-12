@@ -39,8 +39,24 @@ class RMDETR(nn.Module):
         self.multi_scale = multi_scale
         
         self.mask_embed = MLP(query_dim, query_dim*4, mask_dim, num_layers=3)
-        self.mask_norm = nn.LayerNorm(query_dim)
-        self.mask_features = nn.Conv2d(backbone_init_dim, mask_dim, kernel_size=1)
+        # self.mask_norm = nn.LayerNorm(query_dim)
+        self.m1 = nn.Sequential(
+            nn.Conv2d(backbone_init_dim, mask_dim, kernel_size=1),
+            nn.BatchNorm2d(mask_dim),
+        )
+        self.m2 = nn.Sequential(
+            nn.Conv2d(backbone_init_dim, mask_dim, kernel_size=1),
+            nn.BatchNorm2d(mask_dim),
+        )
+        self.fconv = nn.Sequential(
+            nn.Conv2d(mask_dim, mask_dim, kernel_size=1),
+            nn.BatchNorm2d(mask_dim),
+            nn.ReLU(),
+        )
+        
+       
+        
+        nn.Conv2d(backbone_init_dim, mask_dim, kernel_size=1)
 
     def forward(self, x, targets=None):
         if self.multi_scale and self.training:
@@ -51,12 +67,9 @@ class RMDETR(nn.Module):
         encoder_out = self.encoder(x[1:])
         output, out_query = self.decoder(encoder_out, targets)
 
-        m1 = self.mask_features(x[0])
-        m2 = F.interpolate(encoder_out[0], scale_factor=2, mode="bilinear", align_corners=False)
-        mask = m1 + m2
-        mask = self.get_masks(out_query[-1], mask)
+        mask = self.get_mask(out_query[-1], output["pred_boxes"], encoder_out[0], x[0])
         output["pred_masks"] = mask
-        
+              
         return output
 
     def deploy(
@@ -68,8 +81,16 @@ class RMDETR(nn.Module):
                 m.convert_to_deploy()
         return self
     
-    def get_masks(self, query, mask_features):
-        mask_embed = self.mask_embed(self.mask_norm(query))
-        masks = torch.einsum("bqc,bchw->bqhw", mask_embed, mask_features)
-        # masks = F.sigmoid(masks)
-        return masks
+    def get_mask(self, query, box, from_encoder, from_backbone):
+        m1 = self.m1(from_backbone)
+        m2 = F.interpolate(from_encoder, scale_factor=2, mode="bilinear", align_corners=False)
+        m2 = self.m2(m2)
+        mask = m1 + m2
+        mask = self.fconv(mask)
+        n_query = box.shape[1]
+        mask_embed = self.mask_embed(query[:,-n_query:,:])
+        mask = torch.einsum("bqc,bchw->bqhw", mask_embed, mask)
+        
+        return mask
+    
+        

@@ -1,7 +1,7 @@
 task: detection
 
 __include__: ["../include/runtime.yml", "../include/optimizer.yml"]
-output_dir: /home/prml/joohee/RM-DETR/output/r50_250311
+output_dir: /home/prml/StudentsWork/Chanyoung/RM-DETR/output/r50_250312
 epoches: 72
 
 # ======================== Dataset Config ======================== #
@@ -67,7 +67,7 @@ RMDETR:
   backbone_init_dim: 256
   mask_dim: 256
   query_dim: 256
-  
+
 PResNet:
   depth: 50
   variant: d
