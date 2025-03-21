@@ -114,8 +114,6 @@ class CocoEvaluator(object):
             if len(prediction) == 0:
                 continue
 
-            scores = prediction["scores"]
-            labels = prediction["labels"]
             masks = prediction["masks"]
 
             masks = masks > 0.5
@@ -124,15 +122,14 @@ class CocoEvaluator(object):
             # masks = masks.permute((1,2,0))
             scores = prediction["scores"].tolist()
             labels = prediction["labels"].tolist()
-
+            
+        
             rles = [
                 mask_util.encode(
                     np.array(mask[:, :, np.newaxis], dtype=np.uint8, order="F") # 변경 부분 1
                 )[0] # mask util encode의 반환값이 list일때만 [0]
                 for mask in masks
             ]
-            # rles = mask_util.encode(np.asfortranarray(masks.detach().cpu()))
-            
             for rle in rles:
                 rle["counts"] = rle["counts"].decode("utf-8")
 

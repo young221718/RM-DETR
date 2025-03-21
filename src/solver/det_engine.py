@@ -162,6 +162,7 @@ def evaluate(
         if coco_evaluator is not None:
             coco_evaluator.update(res)
 
+        
         # if panoptic_evaluator is not None:
         #     res_pano = postprocessors["panoptic"](outputs, target_sizes, orig_target_sizes)
         #     for i, target in enumerate(targets):
