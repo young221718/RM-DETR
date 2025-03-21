@@ -136,27 +136,31 @@ class RMDETRPostProcessor(nn.Module):
     def forward(self, outputs, orig_target_sizes):
 
         logits, boxes, masks = outputs["pred_logits"], outputs["pred_boxes"], outputs["pred_masks"]
-        # orig_target_sizes = torch.stack([t["orig_size"] for t in targets], dim=0)
-
-        
         
         bbox_pred = torchvision.ops.box_convert(boxes, in_fmt="cxcywh", out_fmt="xyxy")
         bbox_pred *= orig_target_sizes.repeat(1, 2).unsqueeze(1)
         b, q, h, w = masks.shape
-        mask_pred = masks.reshape(b,q,-1)
+        mask_pred = masks.flatten(2)  # [B, num_queries, H*W]
+        # print(mask_pred.shape)
         if self.use_focal_loss:
             scores = F.sigmoid(logits) # 8, 300, 80
-            mask_pred = F.sigmoid(mask_pred)
-            scores, index = torch.topk(scores.flatten(1), self.num_top_queries, axis=-1)
-            labels = index % self.num_classes
-            index = index // self.num_classes
+            # mask_pred = F.sigmoid(mask_pred)
+            # scores, index = torch.topk(scores.flatten(1), self.num_top_queries, axis=-1)
+            # labels = index % self.num_classes
+            # index = index // self.num_classes
+            scores, index = torch.topk(scores.flatten(1), self.num_top_queries, axis=-1)  # Query 차원에서 직접 정렬
+            labels = index % self.num_classes  # 클래스 인덱스
+            index = index // self.num_classes  # Query 인덱스
+            
+            
             boxes = bbox_pred.gather(
                 dim=1, index=index.unsqueeze(-1).repeat(1, 1, bbox_pred.shape[-1])
             )
             mask_pred = mask_pred.gather(
                 dim=1, index=index.unsqueeze(-1).repeat(1, 1, mask_pred.shape[-1])
             )
-            masks = mask_pred.reshape(b,q,h,w)
+            mask_pred = mask_pred.reshape(b,self.num_top_queries,h,w)
+            # print(mask_pred.shape)
             # masks = (masks > 0).float()
             
         else:
@@ -200,8 +204,11 @@ class RMDETRPostProcessor(nn.Module):
             )
 
         results = []
-        for lab, box, sco, mask, tgt_size in zip(labels, boxes, scores, masks, orig_target_sizes):  # Iterate through masks as well
-            mask = F.interpolate(mask.unsqueeze(0), size=(tgt_size[0], tgt_size[1]), mode='bilinear', align_corners=False).squeeze(0)  # Resize the mask
+        mask_pred = F.interpolate(mask_pred, size=(640, 640), mode="bilinear", align_corners=False)
+        # mask_pred = (mask_pred.sigmoid() > 0.5).cpu()
+        for lab, box, sco, mask, tgt_size in zip(labels, boxes, scores, mask_pred, orig_target_sizes):  # Iterate through masks as well
+            mask = F.interpolate(mask.unsqueeze(1), size=(tgt_size[1], tgt_size[0]), mode="bilinear", align_corners=False).squeeze(1)
+            mask = mask.sigmoid()
             result = dict(labels=lab, boxes=box, scores=sco, masks=mask)  # Add mask to the result
             results.append(result)
 

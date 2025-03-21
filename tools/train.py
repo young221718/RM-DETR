@@ -46,19 +46,19 @@ def main(
 
 
 if __name__ == "__main__":
-
+    # -c /home/prml/StudentsWork/Chanyoung/RM-DETR/configs/rm-detr/r50_250311.yml -r /home/prml/StudentsWork/Chanyoung/RM-DETR/output/r50_250312/best.pth --test-only
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--config",
         "-c",
         type=str,
-        # default='/home/prml/StudentsWork/Chanyoung/RM-DETR/configs/rm-detr/r18.yml'
+        # default='/home/prml/StudentsWork/Chanyoung/RM-DETR/configs/rm-detr/r50_250311.yml'
     )
     parser.add_argument(
         "--resume",
         "-r",
         type=str,
-        # default='/home/prml/StudentsWork/Chanyoung/RM-DETR/output/r18/best.pth'
+        default='/home/prml/StudentsWork/Chanyoung/RM-DETR/output/r50_250312/best.pth'
     )
     parser.add_argument(
         "--tuning",
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--test-only",
         action="store_true",
-        default=False,
+        default=True,
     )
     parser.add_argument(
         "--amp",
