@@ -45,7 +45,7 @@ class RMDETR(nn.Module):
             nn.BatchNorm2d(mask_dim),
         )
         self.m2 = nn.Sequential(
-            nn.Conv2d(backbone_init_dim, mask_dim, kernel_size=1),
+            nn.Conv2d(mask_dim, mask_dim, kernel_size=1),
             nn.BatchNorm2d(mask_dim),
         )
         self.fconv = nn.Sequential(

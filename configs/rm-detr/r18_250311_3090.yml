@@ -1,7 +1,7 @@
 task: detection
 
 __include__: ["../include/runtime.yml", "../include/optimizer.yml"]
-output_dir: /home/prml3090/joohee/RM-DETR/output/r18_0311
+output_dir: /home/prml3090/joohee/RM-DETR/output/r18_0312
 epoches: 72
 
 # ======================== Dataset Config ======================== #
@@ -68,7 +68,6 @@ RMDETR:
   mask_dim: 256
   query_dim: 256
 
-
 PResNet:
   depth: 18
   variant: d
@@ -120,14 +119,15 @@ RMDETRPostProcessor:
   num_top_queries: 300
 
 RMDETRCriterion:
-  weight_dict: { loss_vfl: 1, loss_bbox: 5, loss_giou: 2, loss_mask: 5, loss_dice: 5}
-  losses: ["vfl", "boxes", 'masks']
+  weight_dict:
+    { loss_vfl: 1, loss_bbox: 5, loss_giou: 2, loss_mask: 5, loss_dice: 5 }
+  losses: ["vfl", "boxes", "masks"]
   alpha: 0.75
   gamma: 2.0
 
   matcher:
     type: HungarianMatcher
-    weight_dict: { cost_class: 2, cost_bbox: 5, cost_giou: 2}
+    weight_dict: { cost_class: 2, cost_bbox: 5, cost_giou: 2 }
     # weight_dict: { cost_class: 2, cost_bbox: 5, cost_giou: 2, cost_mask: 3, cost_dice: 3}
     # use_focal_loss: True
     alpha: 0.25

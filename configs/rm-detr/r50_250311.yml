@@ -1,7 +1,7 @@
 task: detection
 
 __include__: ["../include/runtime.yml", "../include/optimizer.yml"]
-output_dir: /home/prml/StudentsWork/Chanyoung/RM-DETR/output/r50_250312
+output_dir: /home/prml3090/joohee/RM-DETR/output/r50
 epoches: 72
 
 # ======================== Dataset Config ======================== #
@@ -12,8 +12,8 @@ train_dataloader:
   type: DataLoader
   dataset:
     type: CocoDetection
-    img_folder: /home/prml/Dataset/coco2017/train2017/
-    ann_file: /home/prml/Dataset/coco2017/annotations/instances_train2017.json
+    img_folder: /home/prml3090/joohee/DATA/coco2017/coco2017/train2017/
+    ann_file: /home/prml3090/joohee/DATA/coco2017/coco2017/annotations/instances_train2017.json
     return_masks: True
     transforms:
       type: Compose
@@ -29,7 +29,7 @@ train_dataloader:
         - { type: SanitizeBoundingBoxes, min_size: 1 }
         - { type: ConvertBox, out_fmt: "cxcywh", normalize: True }
   shuffle: True
-  batch_size: 8
+  batch_size: 16
   num_workers: 8
   drop_last: True
   collate_fn: default_collate_fn
@@ -38,8 +38,8 @@ val_dataloader:
   type: DataLoader
   dataset:
     type: CocoDetection
-    img_folder: /home/prml/Dataset/coco2017/val2017/
-    ann_file: /home/prml/Dataset/coco2017/annotations/instances_val2017.json
+    img_folder: /home/prml3090/joohee/DATA/coco2017/coco2017/val2017/
+    ann_file: /home/prml3090/joohee/DATA/coco2017/coco2017/annotations/instances_val2017.json
     return_masks: True
     transforms:
       type: Compose
@@ -49,7 +49,7 @@ val_dataloader:
         - { type: ConvertImageDtype }
 
   shuffle: False
-  batch_size: 8
+  batch_size: 16
   num_workers: 8
   collate_fn: default_collate_fn
   drop_last: False
@@ -80,7 +80,6 @@ PResNet:
 RMDETREncoder:
   in_channels: [512, 1024, 2048]
   feat_strides: [8, 16, 32]
-  
 
   # intra
   dim: 256
@@ -120,15 +119,17 @@ DETRPostProcessor:
   num_top_queries: 300
 
 RMDETRCriterion:
-  weight_dict: { loss_vfl: 1, loss_bbox: 5, loss_giou: 2, loss_mask: 3, loss_dice: 5}
-  losses: ["vfl", "boxes", 'masks']
+  weight_dict:
+    { loss_vfl: 1, loss_bbox: 5, loss_giou: 2, loss_mask: 3, loss_dice: 5 }
+  losses: ["vfl", "boxes", "masks"]
   alpha: 0.75
   gamma: 2.0
 
   matcher:
     type: HungarianMatcher
     # weight_dict: { cost_class: 2, cost_bbox: 5, cost_giou: 2}
-    weight_dict: { cost_class: 2, cost_bbox: 5, cost_giou: 2, cost_mask: 2, cost_dice: 2}
+    weight_dict:
+      { cost_class: 2, cost_bbox: 5, cost_giou: 2, cost_mask: 2, cost_dice: 2 }
     # use_focal_loss: True
     alpha: 0.25
     gamma: 2.0

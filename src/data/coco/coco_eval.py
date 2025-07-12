@@ -115,7 +115,7 @@ class CocoEvaluator(object):
                 continue
 
             masks = prediction["masks"]
-
+            
             masks = masks > 0.5
             masks = masks.float()
             masks = masks.cpu().numpy()
