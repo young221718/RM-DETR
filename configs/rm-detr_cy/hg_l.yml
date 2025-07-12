@@ -1,7 +1,7 @@
 task: detection
 
 __include__: ["../include/runtime.yml", "../include/optimizer.yml"]
-output_dir: /home/prml3090/joohee/RM-DETR/output/r50_250712
+output_dir: /home/prml3090/joohee/RM-DETR/output/hg_l_250712
 epoches: 72
 
 # ======================== Dataset Config ======================== #
@@ -60,22 +60,19 @@ criterion: RMDETRCriterion
 postprocessor: DETRPostProcessor
 
 RMDETR:
-  backbone: PResNet
+  backbone: HGNetv2
   encoder: RMDETREncoder
   decoder: RMDETRDecoder
   multi_scale: [640]
-  backbone_init_dim: 256
+  backbone_init_dim: 128
   mask_dim: 256
   query_dim: 256
 
-PResNet:
-  depth: 50
-  variant: d
-  freeze_at: -1
+HGNetv2:
+  name: "B4"
   return_idx: [0, 1, 2, 3]
-  num_stages: 4
-  freeze_norm: False
-  pretrained: True
+  freeze_at: -1
+  freeze_norm: True
 
 RMDETREncoder:
   in_channels: [512, 1024, 2048]
@@ -107,7 +104,7 @@ RMDETRDecoder:
 
   num_queries: 300
 
-  num_decoder_layers: 6
+  num_decoder_layers: 5
   num_denoising: 100
 
   eval_idx: -1

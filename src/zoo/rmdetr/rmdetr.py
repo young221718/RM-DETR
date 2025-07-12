@@ -54,8 +54,7 @@ class RMDETR(nn.Module):
             nn.ReLU(),
         )
         
-       
-        
+
         nn.Conv2d(backbone_init_dim, mask_dim, kernel_size=1)
 
     def forward(self, x, targets=None):
