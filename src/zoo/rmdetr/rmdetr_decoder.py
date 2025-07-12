@@ -90,7 +90,7 @@ class RMDETRDecoder(nn.Module):
             num_decoder_points,
             deformable_attn=deformable_attn,
             is_decoder_pos=is_decoder_pos,
-            attn_swap=attn_swap,
+            attn_swap=True,
         )
         self.decoder = MaskDinoTransformerDecoder(
             dim, decoder_layer, num_decoder_layers, eval_idx

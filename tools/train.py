@@ -58,7 +58,7 @@ if __name__ == "__main__":
         "--resume",
         "-r",
         type=str,
-        default='/home/prml/StudentsWork/Chanyoung/RM-DETR/output/r50_250312/best.pth'
+        # default='/home/prml/StudentsWork/Chanyoung/RM-DETR/output/r50_250312/best.pth'
     )
     parser.add_argument(
         "--tuning",
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--test-only",
         action="store_true",
-        default=True,
+        default=False,
     )
     parser.add_argument(
         "--amp",
